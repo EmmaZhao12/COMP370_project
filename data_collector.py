@@ -1,39 +1,40 @@
-from pathlib import Path
-from dotenv import load_dotenv
-import os
-from requests import get
-import datetime
+import requests
 import json
+from datetime import datetime, timedelta
 
-query_string = 'https://newsapi.org/v2/everything?'
+#your API key
+api_key = "5d0ce2b34d6f4040b96084a889eb0f30"
+start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
 
+url = "https://newsapi.org/v2/everything"
+params = {
+    'q': 'Donald Trump OR Trump',  
+    'language': 'en',
+    #change domains to news outlets you want, might take more than 5
+    'domains': 'thestar.com,ctvnews.ca,globalnews.ca,nationalpost.com,theglobeandmail.com,rabble.ca,huffpost.com,torontosun.com,vancouversun.com,nationalpost.com,montrealgazette.com',     
+    'from': {str(start_date)},  
+    'apiKey': api_key
+}
 
-
-def fetch_latest_news(api_key, news_keywords, news_sources):
-    current_date = datetime.date.today()
-    lookback = datetime.date.today() - datetime.timedelta(30)
+all_articles = []  
+for page in range(1, 6):  
+    params['page'] = page
+    response = requests.get(url, params=params)
     
-    edited_keyword = []
-    for i in range(len(news_keywords)):
-        if i != 0:
-            edited_keyword.append('OR')
-        if ' ' in news_keywords[i]:
-            news_keywords[i] = f'+"{news_keywords[i]}"' 
-        edited_keyword.append(news_keywords[i])
-    edited_keyword = ''.join(edited_keyword)
-    news_sources = ','.join(news_sources)
+    if response.status_code == 200:
+        articles = response.json().get('articles', [])
+        all_articles.extend(articles)
+        
+        if len(articles) < 100:
+            break
+    else:
+        print(f"Failed to fetch page {page}: {response.status_code}")
+        break
 
-    for i in range(1,6):
-        query = f'{query_string}q={edited_keyword}&domains={news_sources}&sortBy=publishedAt&page={i}&language=en&from={str(lookback)}&to={str(current_date)}&apiKey={api_key}'
-        response = get(query)
-        response = response.json()
+print(f"Found {len(all_articles)} articles in total.")
 
-    with open(f"page{i}.json", "w") as fp:
-        json.dump(response, fp, indent=4)
 
-if __name__ == "__main__":
-    key='ed0028ec564b480bac2b1f94947559ee'
-    final_keywords = ['Donald Trump', 'donald trump', 'Trump', 'Donald']
-    news_outlets = ['cbc.ca', 'ctvnews.ca', 'globalnews.ca', 'cnn.com', 'nytimes.com', 'foxnews.com', 'msn.com', 'usatoday.com']
-    fetch_latest_news(key, final_keywords, news_outlets)
+with open('donald_trump_articles_CAN.json', 'w', encoding='utf-8') as json_file:
+    json.dump(all_articles, json_file, indent=4, ensure_ascii=False)
+
 
